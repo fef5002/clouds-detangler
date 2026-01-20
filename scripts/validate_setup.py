@@ -16,6 +16,7 @@ from utils import (
     get_clouds_config,
     get_paths_config,
 )
+from debug_utils import setup_logger, enable_debug_mode
 import subprocess
 
 
@@ -134,9 +135,15 @@ def test_rclone_access():
 
 
 def main():
+    # Set up logging
+    debug = enable_debug_mode()
+    log = setup_logger('validate_setup', debug=debug)
+    
     print("=" * 60)
     print("Clouds Detangler - Configuration Validator")
     print("=" * 60)
+    
+    log.info("Starting configuration validation")
     
     all_checks = []
     
@@ -144,21 +151,26 @@ def main():
     print("\n=== Checking prerequisites ===")
     prereq_ok = check_prerequisites(verbose=True)
     all_checks.append(("Prerequisites", prereq_ok))
+    log.info(f"Prerequisites check: {'PASS' if prereq_ok else 'FAIL'}")
     
     if not prereq_ok:
         print("\n" + "=" * 60)
         print("FAILED: Fix the issues above before continuing")
         print("=" * 60)
+        log.error("Prerequisites validation failed")
+        log.print_log_location()
         return 1
     
     # Check remotes
     remotes_ok = check_rclone_remotes()
     all_checks.append(("Remote configuration", remotes_ok))
+    log.info(f"Remote configuration check: {'PASS' if remotes_ok else 'FAIL'}")
     
     # Test access
     if remotes_ok:
         access_ok = test_rclone_access()
         all_checks.append(("Remote access", access_ok))
+        log.info(f"Remote access check: {'PASS' if access_ok else 'FAIL'}")
     
     # Summary
     print("\n" + "=" * 60)
@@ -176,10 +188,14 @@ def main():
         print("✓ ALL CHECKS PASSED")
         print("\nYou're ready to run:")
         print("  python scripts/gather_metadata.py")
+        log.info("All validation checks passed")
     else:
         print("✗ SOME CHECKS FAILED")
         print("\nFix the issues above before running gather_metadata.py")
+        log.error("Some validation checks failed")
     print("=" * 60)
+    
+    log.print_log_location()
     
     return 0 if all_passed else 1
 

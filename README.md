@@ -129,6 +129,21 @@ If successful, JSON manifest files will appear in `manifests/`, e.g.:
 
 Each file contains metadata for files in that cloud: path, size, hash, modified time, etc.
 
+### 6. Debugging (Optional)
+
+If something goes wrong, enable debug mode:
+
+```bash
+python scripts/gather_metadata.py --debug
+```
+
+This will:
+- Show detailed diagnostic information
+- Write logs to `~/logs/clouds-detangler/` (or `C:\Users\YourName\logs\clouds-detangler\` on Windows)
+- Enable breakpoints for interactive debugging
+
+See `docs/DEBUGGING.md` for full debugging guide.
+
 ---
 
 ## Advanced Features
