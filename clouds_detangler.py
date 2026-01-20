@@ -114,8 +114,10 @@ class FileScanner:
         
         try:
             with open(file_path, 'rb') as f:
-                while chunk := f.read(self.chunk_size):
+                chunk = f.read(self.chunk_size)
+                while chunk:
                     sha256.update(chunk)
+                    chunk = f.read(self.chunk_size)
             return sha256.hexdigest()
         except (IOError, PermissionError) as e:
             print(f"Warning: Could not read {file_path}: {e}", file=sys.stderr)
