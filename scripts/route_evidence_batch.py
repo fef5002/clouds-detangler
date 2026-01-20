@@ -4,7 +4,7 @@ Batch process files from staging directory and route to cloud storage
 """
 
 from pathlib import Path
-import route_file
+from route_evidence import route_evidence_file
 import time
 
 def process_staging_directory(staging_dir, upload_to_backblaze=True, upload_to_gdrive=False, local_only=False, max_files=None):
@@ -37,7 +37,7 @@ def process_staging_directory(staging_dir, upload_to_backblaze=True, upload_to_g
         
         try:
             # Route file to clouds
-            result = route_file.route_file(
+            result = route_evidence_file(
                 str(file_path),
                 upload_to_backblaze=upload_to_backblaze,
                 upload_to_gdrive=upload_to_gdrive,

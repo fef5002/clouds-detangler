@@ -49,6 +49,22 @@ Right now, you get a safe, inspectable **snapshot** of your cloud storage.
 
 ## Quick Start
 
+### Option 1: Interactive Setup Wizard (Recommended)
+
+The easiest way to get started is using the interactive setup wizard:
+
+```bash
+python setup_wizard.py
+```
+
+This will guide you through:
+1. Checking prerequisites
+2. Configuring cloud storage remotes (with OAuth)
+3. Creating configuration files
+4. Validating your setup
+
+### Option 2: Manual Setup
+
 ### 1. Prerequisites
 
 - **Python 3.10+** installed

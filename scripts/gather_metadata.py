@@ -63,7 +63,7 @@ def run_lsjson(remote: str, root: str, include_shared: bool, out_path: Path) -> 
         print("stderr:")
         print(result.stderr)
         print("\nPossible causes:")
-        print("  - OAuth token expired (run: rclone config reconnect {remote}:)")
+        print(f"  - OAuth token expired (run: rclone config reconnect {remote}:)")
         print("  - Network connectivity issue")
         print("  - Remote name doesn't exist (run: rclone listremotes)")
         return False
