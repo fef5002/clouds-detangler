@@ -82,7 +82,9 @@ Check your remotes with:
 rclone listremotes
 ```
 
-**New to rclone?** See `docs/RCLONE_SETUP.md` for a detailed walkthrough (coming soon).
+**New to rclone?** See `docs/RCLONE_SETUP.md` for a detailed walkthrough.
+
+**New to command-line tools?** See `docs/FOR_BEGINNERS.md` - written for teens and parents!
 
 ### 2. Create Your Config
 

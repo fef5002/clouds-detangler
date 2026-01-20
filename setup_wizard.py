@@ -123,6 +123,155 @@ def check_rclone_installed() -> bool:
         return False
 
 
+def find_rclone_executable() -> Optional[Path]:
+    """Try to find rclone executable in common locations"""
+    import shutil
+    
+    # First check if it's already in PATH
+    rclone_path = shutil.which('rclone')
+    if rclone_path:
+        return Path(rclone_path)
+    
+    # Common download/install locations
+    common_locations = []
+    
+    if os.name == 'nt':  # Windows
+        common_locations = [
+            Path.home() / 'Downloads' / 'rclone.exe',
+            Path.home() / 'Downloads' / 'rclone-*' / 'rclone.exe',
+            Path('C:/Program Files/rclone/rclone.exe'),
+            Path('C:/rclone/rclone.exe'),
+        ]
+    else:  # macOS/Linux
+        common_locations = [
+            Path.home() / 'Downloads' / 'rclone',
+            Path('/usr/local/bin/rclone'),
+            Path('/usr/bin/rclone'),
+            Path('/opt/rclone/rclone'),
+        ]
+    
+    # Check each location
+    for loc in common_locations:
+        if '*' in str(loc):
+            # Handle wildcards
+            parent = loc.parent
+            pattern = loc.name
+            if parent.exists():
+                matches = list(parent.glob(pattern))
+                if matches:
+                    return matches[0]
+        elif loc.exists():
+            return loc
+    
+    return None
+
+
+def explain_path():
+    """Explain what PATH is in simple terms"""
+    print("\n" + "=" * 70)
+    print(f"{Colors.BOLD}What is PATH?{Colors.ENDC}\n")
+    print("PATH is a list of folders where your computer looks for programs.")
+    print("When you type 'rclone' in the terminal, your computer searches")
+    print("these folders to find the rclone program.\n")
+    print("We need to add rclone to PATH so you can run it from anywhere.")
+    print("=" * 70 + "\n")
+
+
+def help_add_to_path():
+    """Guide user through adding rclone to PATH"""
+    print_header("Add rclone to PATH")
+    
+    print("Let's find rclone and add it to your PATH.\n")
+    
+    # Try to find rclone
+    rclone_path = find_rclone_executable()
+    
+    if rclone_path:
+        print_success(f"Found rclone at: {rclone_path}")
+        rclone_dir = rclone_path.parent
+    else:
+        print_warning("Could not find rclone automatically.")
+        print("\nDo you know where you downloaded/installed rclone?")
+        
+        while True:
+            user_path = ask_text("Enter the full path to rclone (or 'skip' to skip)", required=False)
+            if user_path.lower() == 'skip':
+                return False
+            
+            check_path = Path(user_path)
+            if check_path.exists():
+                rclone_path = check_path
+                rclone_dir = check_path.parent if check_path.is_file() else check_path
+                print_success(f"Found rclone at: {rclone_path}")
+                break
+            else:
+                print_error(f"File not found: {user_path}")
+                if not ask_yes_no("Try again?"):
+                    return False
+    
+    print()
+    explain_path()
+    
+    # Platform-specific instructions
+    if os.name == 'nt':  # Windows
+        print(f"{Colors.BOLD}Option 1: Quick Method (This Session Only){Colors.ENDC}\n")
+        print("Copy and paste this command in your terminal:\n")
+        cmd = f'set PATH=%PATH%;{rclone_dir}'
+        print(f"{Colors.CYAN}{cmd}{Colors.ENDC}\n")
+        print(f"{Colors.YELLOW}Note: This only works until you close the terminal.{Colors.ENDC}\n")
+        
+        print(f"{Colors.BOLD}Option 2: Permanent Method (Recommended){Colors.ENDC}\n")
+        print("1. Press Windows Key and search for 'Environment Variables'")
+        print("2. Click 'Edit the system environment variables'")
+        print("3. Click 'Environment Variables...' button")
+        print("4. Under 'User variables', find and select 'Path'")
+        print("5. Click 'Edit...'")
+        print("6. Click 'New'")
+        print(f"7. Paste this folder path: {Colors.CYAN}{rclone_dir}{Colors.ENDC}")
+        print("8. Click 'OK' on all windows")
+        print("9. Close and reopen your terminal\n")
+        
+        print(f"{Colors.BOLD}Option 3: PowerShell Command (Permanent){Colors.ENDC}\n")
+        print(f"{Colors.YELLOW}⚠ Run PowerShell as Administrator, then paste this:{Colors.ENDC}\n")
+        ps_cmd = f'[Environment]::SetEnvironmentVariable("Path", $env:Path + ";{rclone_dir}", "User")'
+        print(f"{Colors.CYAN}{ps_cmd}{Colors.ENDC}\n")
+        
+    else:  # macOS/Linux
+        shell = os.environ.get('SHELL', '/bin/bash')
+        
+        if 'zsh' in shell:
+            rc_file = Path.home() / '.zshrc'
+        elif 'bash' in shell:
+            rc_file = Path.home() / '.bashrc'
+        else:
+            rc_file = Path.home() / '.profile'
+        
+        print(f"{Colors.BOLD}Option 1: Quick Method (This Session Only){Colors.ENDC}\n")
+        print("Copy and paste this command in your terminal:\n")
+        cmd = f'export PATH="$PATH:{rclone_dir}"'
+        print(f"{Colors.CYAN}{cmd}{Colors.ENDC}\n")
+        print(f"{Colors.YELLOW}Note: This only works until you close the terminal.{Colors.ENDC}\n")
+        
+        print(f"{Colors.BOLD}Option 2: Permanent Method (Recommended){Colors.ENDC}\n")
+        print("Copy and paste this command in your terminal:\n")
+        perm_cmd = f'echo \'export PATH="$PATH:{rclone_dir}"\' >> {rc_file}'
+        print(f"{Colors.CYAN}{perm_cmd}{Colors.ENDC}\n")
+        print(f"Then reload your shell with: {Colors.CYAN}source {rc_file}{Colors.ENDC}\n")
+        
+        print(f"{Colors.BOLD}Option 3: Move to System Folder{Colors.ENDC}\n")
+        print("Copy and paste this command (may need to enter your password):\n")
+        move_cmd = f'sudo mv {rclone_path} /usr/local/bin/'
+        print(f"{Colors.CYAN}{move_cmd}{Colors.ENDC}\n")
+    
+    print("=" * 70)
+    print(f"\n{Colors.BOLD}After adding to PATH:{Colors.ENDC}")
+    print("1. Close and reopen your terminal (or reload shell)")
+    print("2. Test by typing: rclone version")
+    print("3. You should see the rclone version information\n")
+    
+    return ask_yes_no("Have you added rclone to PATH?", default=False)
+
+
 def get_rclone_remotes() -> List[str]:
     """Get list of configured rclone remotes"""
     try:
@@ -241,12 +390,49 @@ def main():
     
     # Check rclone
     if check_rclone_installed():
-        print_success("rclone is installed")
+        print_success("rclone is installed and in PATH")
     else:
-        print_error("rclone is not installed")
-        print_info("Download from: https://rclone.org/downloads/")
-        if not ask_yes_no("Continue anyway?", default=False):
-            return 1
+        print_error("rclone is not found in PATH")
+        print()
+        
+        # Check if rclone exists but not in PATH
+        rclone_path = find_rclone_executable()
+        if rclone_path:
+            print_info(f"Found rclone at: {rclone_path}")
+            print_info("But it's not in your PATH, so we need to add it.\n")
+            
+            if ask_yes_no("Would you like help adding rclone to PATH?"):
+                input("\nPress Enter to see instructions...")
+                clear_screen()
+                if help_add_to_path():
+                    # Test again
+                    if check_rclone_installed():
+                        print_success("Great! rclone is now working!")
+                    else:
+                        print_warning("rclone still not found. You may need to restart your terminal.")
+                        print_info("After restarting, run this wizard again: python setup_wizard.py")
+                        if not ask_yes_no("Continue setup anyway?", default=False):
+                            return 1
+                else:
+                    print_warning("Skipping PATH setup.")
+                    if not ask_yes_no("Continue anyway?", default=False):
+                        return 1
+            else:
+                if not ask_yes_no("Continue anyway?", default=False):
+                    return 1
+        else:
+            print_info("rclone not found on your computer.")
+            print_info("Download from: https://rclone.org/downloads/\n")
+            
+            print(f"{Colors.BOLD}Download Instructions:{Colors.ENDC}\n")
+            print("1. Go to: https://rclone.org/downloads/")
+            print("2. Download the version for your operating system")
+            print("3. Extract the ZIP file")
+            print("4. Note where you extracted it (like Downloads folder)")
+            print("5. Run this wizard again after downloading\n")
+            
+            if not ask_yes_no("Continue anyway?", default=False):
+                return 1
     
     # Check dependencies
     try:
