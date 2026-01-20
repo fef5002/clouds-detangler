@@ -1,0 +1,33 @@
+# Configuration for cloud storage remotes
+# Copy this file to config/clouds.yaml and customize for your setup
+
+clouds:
+  # Google Drive - Primary account
+  - name: "Google Drive Main"
+    rclone_remote: "gdrive_main"
+    root: ""  # Empty string = scan entire remote
+    include_shared: false  # Set to true to include "Shared with me" files
+    
+  # Google Drive - Secondary account (example)
+  # - name: "Google Drive Secondary"
+  #   rclone_remote: "gdrive_second"
+  #   root: ""
+  #   include_shared: false
+    
+  # OneDrive (example)
+  # - name: "OneDrive Personal"
+  #   rclone_remote: "onedrive"
+  #   root: ""
+  #   include_shared: false
+    
+  # Dropbox (example)
+  # - name: "Dropbox"
+  #   rclone_remote: "dropbox"
+  #   root: ""
+  #   include_shared: false
+
+# Notes:
+# - The 'rclone_remote' value must match a remote name from: rclone listremotes
+# - The 'root' can be a subfolder like "Documents" or "" for the entire remote
+# - Run 'rclone listremotes' to see your configured remotes
+# - Run 'rclone config' to add new remotes
