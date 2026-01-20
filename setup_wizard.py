@@ -288,6 +288,269 @@ def get_rclone_remotes() -> List[str]:
         return []
 
 
+def get_remote_info(remote: str) -> Dict[str, str]:
+    """Get configuration info for a specific remote"""
+    try:
+        result = subprocess.run(
+            ['rclone', 'config', 'show', remote],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            info = {}
+            for line in result.stdout.split('\n'):
+                if '=' in line and not line.startswith('['):
+                    key, value = line.split('=', 1)
+                    info[key.strip()] = value.strip()
+            return info
+        return {}
+    except Exception:
+        return {}
+
+
+def test_remote_access(remote: str) -> bool:
+    """Test if a remote is accessible (OAuth token still valid)"""
+    try:
+        result = subprocess.run(
+            ['rclone', 'lsf', f'{remote}:', '--max-depth', '1'],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def review_and_update_remotes() -> List[str]:
+    """Review existing remotes and update if needed"""
+    print_header("Review Existing rclone Remotes")
+    
+    remotes = get_rclone_remotes()
+    
+    if not remotes:
+        print_info("No existing rclone remotes found.")
+        print_info("You'll configure new remotes in the next step.\n")
+        return []
+    
+    print(f"Found {len(remotes)} existing remote(s):\n")
+    
+    # Show all remotes with their status
+    remote_status = {}
+    
+    for remote in remotes:
+        info = get_remote_info(remote)
+        remote_type = info.get('type', 'unknown')
+        
+        print(f"{Colors.BOLD}{remote}{Colors.ENDC}")
+        print(f"  Type: {remote_type}")
+        
+        # Test access
+        print(f"  Testing access...", end=' ', flush=True)
+        is_accessible = test_remote_access(remote)
+        
+        if is_accessible:
+            print_success("Working ✓")
+            remote_status[remote] = 'working'
+        else:
+            print_error("Failed ✗ (may need reconnecting)")
+            remote_status[remote] = 'needs_update'
+        
+        print()
+    
+    # Check if any need updating
+    needs_update = [r for r, s in remote_status.items() if s == 'needs_update']
+    
+    if needs_update:
+        print(f"{Colors.YELLOW}{'=' * 70}{Colors.ENDC}")
+        print(f"{Colors.BOLD}Remotes that need updating:{Colors.ENDC}\n")
+        for remote in needs_update:
+            print(f"  ✗ {remote}")
+        print(f"\n{Colors.YELLOW}{'=' * 70}{Colors.ENDC}\n")
+        
+        print(f"{Colors.BOLD}Why remotes fail:{Colors.ENDC}")
+        print("  • OAuth tokens expired (need to log in again)")
+        print("  • Passwords changed")
+        print("  • Account permissions changed")
+        print("  • Remote was deleted from cloud provider\n")
+        
+        if ask_yes_no("Would you like to update these remotes now?"):
+            return update_remotes_interactive(needs_update, remotes)
+    else:
+        print_success("All remotes are working! ✓\n")
+        
+        if ask_yes_no("Would you like to update any remotes anyway?", default=False):
+            return update_remotes_interactive(remotes, remotes)
+    
+    return remotes
+
+
+def update_remotes_interactive(remotes_to_update: List[str], all_remotes: List[str]) -> List[str]:
+    """Interactively update remotes with various methods"""
+    print()
+    print_info("Let's update your remotes.\n")
+    
+    # Ask about Bitwarden CLI
+    use_bitwarden = False
+    if ask_yes_no("Are you using Bitwarden CLI for password management?", default=False):
+        use_bitwarden = True
+        print()
+        print_info("Great! Make sure you're logged into Bitwarden CLI:")
+        print(f"  {Colors.CYAN}bw login{Colors.ENDC}")
+        print(f"  {Colors.CYAN}bw unlock{Colors.ENDC}")
+        print()
+        print_info("You can retrieve passwords with:")
+        print(f"  {Colors.CYAN}bw get password <item-name>{Colors.ENDC}\n")
+        
+        if not ask_yes_no("Are you logged into Bitwarden CLI?", default=False):
+            print_warning("Please log in to Bitwarden CLI first, then run this wizard again.")
+            use_bitwarden = False
+    
+    updated_remotes = []
+    
+    for remote in remotes_to_update:
+        print(f"\n{Colors.BOLD}{'=' * 70}{Colors.ENDC}")
+        print(f"{Colors.BOLD}Updating: {remote}{Colors.ENDC}")
+        print(f"{Colors.BOLD}{'=' * 70}{Colors.ENDC}\n")
+        
+        info = get_remote_info(remote)
+        remote_type = info.get('type', 'unknown')
+        
+        print(f"Remote type: {remote_type}")
+        
+        # Show update options
+        print(f"\n{Colors.BOLD}Update options:{Colors.ENDC}\n")
+        print("1. Reconnect (re-authenticate with OAuth)")
+        print("2. Reconfigure (edit all settings)")
+        print("3. Delete and recreate")
+        print("4. Skip this remote")
+        
+        if use_bitwarden:
+            print("5. Update password from Bitwarden CLI")
+        
+        print()
+        
+        choice = ask_text("Choose an option (1-5)" if use_bitwarden else "Choose an option (1-4)", default="1")
+        
+        if choice == '1':
+            # Reconnect (OAuth refresh)
+            print()
+            print_info(f"Reconnecting {remote}...")
+            print_info("Your browser will open for authentication.\n")
+            
+            try:
+                result = subprocess.run(['rclone', 'config', 'reconnect', f'{remote}:'])
+                
+                if result.returncode == 0:
+                    # Test if it worked
+                    if test_remote_access(remote):
+                        print_success(f"Successfully reconnected {remote}!")
+                        updated_remotes.append(remote)
+                    else:
+                        print_warning(f"Reconnect completed but access test failed.")
+                        print_info(f"You may need to try 'Reconfigure' instead.")
+                else:
+                    print_error(f"Reconnect failed for {remote}")
+            except Exception as e:
+                print_error(f"Error reconnecting: {e}")
+        
+        elif choice == '2':
+            # Reconfigure
+            print()
+            print_info(f"Opening configuration for {remote}...")
+            print_info("You'll be guided through updating all settings.\n")
+            
+            try:
+                subprocess.run(['rclone', 'config', 'update', remote])
+                updated_remotes.append(remote)
+            except Exception as e:
+                print_error(f"Error reconfiguring: {e}")
+        
+        elif choice == '3':
+            # Delete and recreate
+            print()
+            print_warning(f"This will DELETE the remote '{remote}' and let you create a new one.")
+            
+            if ask_yes_no(f"Are you sure you want to delete '{remote}'?", default=False):
+                try:
+                    # Delete
+                    subprocess.run(['rclone', 'config', 'delete', remote])
+                    print_success(f"Deleted {remote}")
+                    
+                    print()
+                    print_info("Now let's create a new remote with the same name...")
+                    subprocess.run(['rclone', 'config'])
+                    
+                    # Check if it was recreated
+                    if remote in get_rclone_remotes():
+                        updated_remotes.append(remote)
+                except Exception as e:
+                    print_error(f"Error during delete/recreate: {e}")
+        
+        elif choice == '4':
+            # Skip
+            print_info(f"Skipping {remote}")
+        
+        elif choice == '5' and use_bitwarden:
+            # Update password from Bitwarden
+            print()
+            print_info("Retrieving password from Bitwarden CLI...\n")
+            
+            item_name = ask_text(f"Bitwarden item name for {remote}")
+            
+            print(f"\n{Colors.CYAN}Running: bw get password {item_name}{Colors.ENDC}\n")
+            
+            try:
+                bw_result = subprocess.run(
+                    ['bw', 'get', 'password', item_name],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                
+                if bw_result.returncode == 0:
+                    password = bw_result.stdout.strip()
+                    print_success("Password retrieved from Bitwarden!")
+                    
+                    print()
+                    print_info("Now updating rclone config with new password...")
+                    print_info("You'll need to enter this password when prompted.")
+                    print()
+                    
+                    # Run config update
+                    subprocess.run(['rclone', 'config', 'update', remote])
+                    updated_remotes.append(remote)
+                else:
+                    print_error("Failed to retrieve password from Bitwarden")
+                    print_info("Make sure you're logged in: bw login && bw unlock")
+            except FileNotFoundError:
+                print_error("Bitwarden CLI not found!")
+                print_info("Install from: https://bitwarden.com/help/cli/")
+            except Exception as e:
+                print_error(f"Error retrieving from Bitwarden: {e}")
+    
+    print(f"\n{Colors.BOLD}{'=' * 70}{Colors.ENDC}")
+    print(f"{Colors.BOLD}Remote Update Summary{Colors.ENDC}")
+    print(f"{Colors.BOLD}{'=' * 70}{Colors.ENDC}\n")
+    print(f"Updated {len(updated_remotes)} remote(s)")
+    
+    if updated_remotes:
+        print(f"\n{Colors.GREEN}Successfully updated:{Colors.ENDC}")
+        for r in updated_remotes:
+            print(f"  ✓ {r}")
+    
+    skipped = set(remotes_to_update) - set(updated_remotes)
+    if skipped:
+        print(f"\n{Colors.YELLOW}Skipped:{Colors.ENDC}")
+        for r in skipped:
+            print(f"  - {r}")
+    
+    print()
+    
+    return all_remotes
+
+
 def configure_rclone_remote(provider: str) -> Optional[str]:
     """Guide user through rclone configuration"""
     print_info(f"Opening rclone configuration for {provider}...")
@@ -367,9 +630,10 @@ def main():
     print("This wizard will help you set up Clouds Detangler.\n")
     print("We'll guide you through:")
     print("  1. Checking prerequisites")
-    print("  2. Configuring cloud storage remotes")
-    print("  3. Creating configuration files")
-    print("  4. Validating your setup\n")
+    print("  2. Reviewing & updating existing remotes")
+    print("  3. Configuring cloud storage remotes")
+    print("  4. Creating configuration files")
+    print("  5. Validating your setup\n")
     
     if not ask_yes_no("Ready to begin?"):
         print("\nSetup cancelled.")
@@ -447,18 +711,27 @@ def main():
     
     input("\nPress Enter to continue...")
     
-    # Step 2: Configure cloud remotes
+    # Step 2: Review and update existing remotes
+    clear_screen()
+    print_header("Review & Update Existing Remotes")
+    print_step(2, 5, "Review Existing Remotes")
+    
+    existing_remotes = review_and_update_remotes()
+    
+    input("\nPress Enter to continue...")
+    
+    # Step 3: Configure cloud remotes
     clear_screen()
     print_header("Configure Cloud Storage")
-    print_step(2, 4, "Configure Cloud Remotes")
+    print_step(3, 5, "Configure Cloud Remotes")
     
     existing_remotes = get_rclone_remotes()
     
+    # Note: We already reviewed these in the previous step
     if existing_remotes:
-        print_info(f"Found {len(existing_remotes)} existing remote(s):")
-        for remote in existing_remotes:
-            print(f"  - {remote}")
-        print()
+        print_info(f"You have {len(existing_remotes)} existing remote(s) from the review step.\n")
+    else:
+        print_info("No existing remotes. Let's add some!\n")
     
     # Choose what to configure
     providers = {
@@ -552,10 +825,10 @@ def main():
     
     input("\nPress Enter to continue...")
     
-    # Step 3: Create configuration files
+    # Step 4: Create configuration files
     clear_screen()
     print_header("Create Configuration Files")
-    print_step(3, 4, "Create Configuration")
+    print_step(4, 5, "Create Configuration")
     
     # Ensure config directory exists
     Path('config').mkdir(exist_ok=True)
@@ -573,10 +846,10 @@ def main():
     
     input("\nPress Enter to continue...")
     
-    # Step 4: Validate setup
+    # Step 5: Validate setup
     clear_screen()
     print_header("Validate Setup")
-    print_step(4, 4, "Validate Configuration")
+    print_step(5, 5, "Validate Configuration")
     
     print("Running validation...\n")
     
