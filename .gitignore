@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Manifests directory (contains user data)
+manifests/*.json
+manifests/*.csv
+!manifests/.gitkeep
+
+# Logs
+logs/
+*.log
+
+# User config files (contain sensitive credentials)
+config/clouds.yaml
+config/paths.yaml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Evidence/working copies
+C:/Evidence/
+Working-Copies/
+
+# DuckDB files
+*.duckdb
+*.duckdb.wal
