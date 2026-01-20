@@ -1,0 +1,40 @@
+# Example cloud configuration
+# This shows what a typical configuration looks like
+# Copy to clouds.yaml and customize for your setup
+
+clouds:
+  # Example: Google Drive primary account
+  - name: "Google Drive Main"
+    rclone_remote: "gdrive_main"    # Must match output of: rclone listremotes
+    root: ""                         # "" = scan entire remote, or specify subfolder like "Documents"
+    include_shared: false            # Set to true to include "Shared with me" files
+    
+  # Example: OneDrive personal account
+  - name: "OneDrive Personal"
+    rclone_remote: "onedrive"
+    root: ""
+    include_shared: false
+    
+  # Example: Dropbox account
+  - name: "Dropbox"
+    rclone_remote: "dropbox"
+    root: ""
+    include_shared: false
+    
+  # Example: Google Drive secondary account (e.g., work account)
+  - name: "Google Drive Work"
+    rclone_remote: "gdrive_work"
+    root: ""
+    include_shared: true             # Include shared folders from teammates
+    
+  # Example: Scanning only a specific folder
+  - name: "Google Drive Photos Only"
+    rclone_remote: "gdrive_main"
+    root: "Photos"                   # Only scan the Photos folder
+    include_shared: false
+
+# Tips:
+# - Remove or comment out clouds you don't have configured
+# - The order doesn't matter
+# - You can add the same remote multiple times with different 'root' paths
+# - Use 'rclone listremotes' to see your configured remotes

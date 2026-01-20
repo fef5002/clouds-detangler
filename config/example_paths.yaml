@@ -1,0 +1,17 @@
+# Example paths configuration
+# Copy to paths.yaml and customize for your setup
+
+# Where to save JSON manifests from rclone lsjson
+# Each cloud will create one .json file here
+manifests_dir: "./manifests"
+
+# Where to save logs (optional, not currently used by all scripts)
+logs_dir: "./logs"
+
+# Where to save DuckDB database (for future use)
+database_path: "./clouds.duckdb"
+
+# Tips:
+# - Use relative paths (starting with ./) for portability
+# - Or use absolute paths like "C:/Users/YourName/clouds-data/manifests"
+# - Directories will be created automatically if they don't exist
